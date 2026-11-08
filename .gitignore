@@ -1,0 +1,19 @@
+# 派生产物。本工具的数据根在 %LOCALAPPDATA%\ai-memory（macOS: ~/Library/Application
+# Support/ai-memory，Linux: $XDG_DATA_HOME/ai-memory），可用 AI_MEMORY_HOME 覆盖。
+# 下列条目挡住两种情况：把数据根指到了仓库里，或旧版本（代码根＝数据根）的残留。
+# 这些文件含真实记忆内容、绝对家目录路径和 projectKey 里的系统用户名，绝不能提交。
+/store/
+/state.json
+/scan.json
+/report.json
+/skills.json
+/platforms.json
+/.baseline.sha256
+
+# 依赖。本工具刻意零依赖：verify 会断言没有 node_modules、没有外部 import。
+node_modules/
+
+# 日志与系统垃圾
+*.log
+.DS_Store
+Thumbs.db

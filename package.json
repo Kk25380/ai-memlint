@@ -1,0 +1,35 @@
+{
+  "name": "ai-memlint",
+  "version": "0.1.0",
+  "description": "Read-only, zero-dependency auditor for AI coding agents' memory files and skill directories.",
+  "type": "module",
+  "license": "MIT",
+  "bin": {
+    "ai-memlint": "bin/cli.mjs"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "files": [
+    "bin",
+    "lib",
+    "web",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "test": "node --test",
+    "verify": "node bin/cli.mjs verify",
+    "doctor": "node bin/cli.mjs doctor"
+  },
+  "keywords": [
+    "ai",
+    "memory",
+    "audit",
+    "lint",
+    "security",
+    "credentials",
+    "skills",
+    "cli"
+  ]
+}

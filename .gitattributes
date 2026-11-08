@@ -1,0 +1,3 @@
+# Keep the repository LF everywhere: a CRLF shebang in bin/cli.mjs would break the
+# `#!/usr/bin/env node` line on Unix checkouts.
+* text=auto eol=lf
