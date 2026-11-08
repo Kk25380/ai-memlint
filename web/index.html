@@ -113,18 +113,20 @@ input:focus,select:focus{outline:0;border-color:var(--a)}
 </head>
 <body>
 <header>
-  <h1>ai-memlint <span id="sub"></span></h1>
+  <h1>ai-memlint <span id="sub">跨平台记忆审计器</span></h1>
   <div class="chips" id="chips"></div>
 </header>
+<!-- The inline text below is a fallback for opening this file directly, where no server
+     injects the dictionary. When served, data-i18n overwrites it with the active locale. -->
 <nav id="nav">
-  <button data-t="find" aria-selected="true" data-i18n="web.nav.find"></button>
-  <button data-t="plat" data-i18n="web.nav.plat"></button>
-  <button data-t="skills" data-i18n="web.nav.skills"></button>
-  <button data-t="notes" data-i18n="web.nav.notes"></button>
-  <button data-t="health" data-i18n="web.nav.health"></button>
+  <button data-t="find" aria-selected="true" data-i18n="web.nav.find">发现</button>
+  <button data-t="plat" data-i18n="web.nav.plat">平台</button>
+  <button data-t="skills" data-i18n="web.nav.skills">技能</button>
+  <button data-t="notes" data-i18n="web.nav.notes">笔记</button>
+  <button data-t="health" data-i18n="web.nav.health">体检</button>
   <span style="flex:1"></span>
-  <button class="btn" id="rescan" data-i18n="web.rescan"></button>
-  <button class="btn write" id="materialize" hidden data-i18n="web.materialize"></button>
+  <button class="btn" id="rescan" data-i18n="web.rescan">重新扫描</button>
+  <button class="btn write" id="materialize" hidden data-i18n="web.materialize">物化 store</button>
 </nav>
 <main>
   <div id="scan-status" class="scan-status" role="status" aria-live="polite" aria-atomic="true" hidden>
@@ -142,7 +144,16 @@ const TOKEN='__TOKEN__';
 // The server injects only the web.* slice of the active locale, so the page never carries
 // strings in a language the CLI is not using. T() falls back to the key, which stays visible
 // in the UI rather than rendering "undefined".
-const L=__I18N__, LOCALE='__LOCALE__';
+//
+// Opened straight from disk there is no server to inject these, so both degrade instead of
+// throwing: the page keeps its inline Chinese labels and shows the API error banner, which is
+// far more useful than a blank screen caused by a ReferenceError before anything renders.
+const L=(typeof __I18N__==='undefined')?{}:__I18N__;
+const LOCALE_RAW='__LOCALE__';
+// Validating the tag instead of comparing against the placeholder: the server replaces the
+// placeholder textually, so a sentinel comparison would match after injection and always win.
+const LOCALE=/^(zh|en)$/.test(LOCALE_RAW)?LOCALE_RAW:'en';
+const MISSING=Object.keys(L).length===0;
 const T=(k,v)=>{let s=L[k]??k;if(v)s=s.replace(/\{(\w+)\}/g,(m,x)=>v[x]===undefined?m:String(v[x]));return s};
 const dateStr=(d)=>new Date(d).toLocaleString(LOCALE==='zh'?'zh-CN':'en-US');
 const api=(p,o)=>fetch('/api/'+p+(p.includes('?')?'&':'?')+'t='+TOKEN,o).then(r=>r.json());
@@ -155,7 +166,9 @@ const BLAME=[['user-data',T('web.blame.user')],['descriptor',T('web.blame.descri
 const BLAME_WHY={'user-data':T('web.why.user'),
  'descriptor':T('web.why.descriptor'),
  'platform':T('web.why.platform')};
-document.querySelectorAll('[data-i18n]').forEach(x=>{x.textContent=T(x.dataset.i18n)});
+// Only overwrite when a dictionary actually arrived; otherwise the inline fallback labels
+// would be replaced by raw keys.
+if(!MISSING)document.querySelectorAll('[data-i18n]').forEach(x=>{x.textContent=T(x.dataset.i18n)});
 let D=null,V=null,SK=null,pendingOpen=null;
 const BODY_OPT='aim.body.secret-value';
 
@@ -736,7 +749,10 @@ document.getElementById('materialize').onclick=e=>materialize(e.currentTarget);
     if(r.error)throw new Error(r.error);
     D=r;chips();vFind();
   }catch(e){
-    document.getElementById('v-find').append(el('div','banner b',T('web.err.overview',{err:e.message})));
+    const msg=MISSING
+      ?'此页面需要通过本地服务打开：运行 ai-memlint view · This page must be opened through the local server: run ai-memlint view'
+      :T('web.err.overview',{err:e.message});
+    document.getElementById('v-find').append(el('div','banner b',msg));
   }
 })();
 </script>
