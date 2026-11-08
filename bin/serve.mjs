@@ -18,7 +18,7 @@ import { classify, mask } from '../lib/redact.mjs';
 import { runAssertions } from '../lib/verify.mjs';
 import { CUSTOM_PATH, loadCustom, saveCustom } from '../lib/custom.mjs';
 import { BIN, CODE_ROOT, DATA_ROOT, HOME, STATE_PATH, STORE, WEB_ROOT, displayPath, resolve as resolveRoots } from '../lib/paths.mjs';
-import { LOCALES, locale as currentLocale } from '../lib/i18n.mjs';
+import { LOCALES, locale as currentLocale, t } from '../lib/i18n.mjs';
 
 const PORT = Number(process.env.PORT || 4371);
 const TOKEN = randomBytes(16).toString('hex');
@@ -142,7 +142,7 @@ function overview() {
 function noteBody(key, wantBody) {
   const state = loadState();
   const n = state && Object.prototype.hasOwnProperty.call(state.notes ?? {}, key) ? state.notes[key] : null;
-  if (!n) return { error: '该键不在 store 索引中', code: 404 };
+  if (!n) return { error: t('serve.errNoKey'), code: 404 };
   if (n.suppressed || !n.storePath) {
     const meta = {
       level: n.level, rules: n.rules, marks: n.marks ?? [],
@@ -159,21 +159,21 @@ function noteBody(key, wantBody) {
       // marks were computed on the winner's text, so pick the source whose hash
       // matches the recorded one; line numbers stay aligned with what we return.
       const hit = texts.find(([, t]) => sha(t) === n.hash) ?? texts[0];
-      if (!hit) return { error: '源文件已不存在，无法临时读取正文', code: 404, meta };
+      if (!hit) return { error: t('serve.errSourceGone'), code: 404, meta };
       return {
         text: mask(hit[1]), masked: true, live: true, level: n.level,
         rules: n.rules, marks: n.marks ?? [], meta: { ...meta, liveFrom: displayPath(hit[0]) },
       };
     }
     return {
-      error: '该笔记含明文凭据，正文从未被复制到数据目录，默认不提供', code: 403,
+      error: t('serve.errSecretBody'), code: 403,
       meta,
     };
   }
 
   const abs = resolve(n.storePath);
-  if (!abs.startsWith(STORE + sep)) return { error: '路径越出 store', code: 403 };
-  if (!existsSync(abs)) return { error: 'store 中无此文件，请重新物化', code: 404 };
+  if (!abs.startsWith(STORE + sep)) return { error: t('serve.errPathEscape'), code: 403 };
+  if (!existsSync(abs)) return { error: t('serve.errNoFile'), code: 404 };
 
   const stored = readFileSync(abs, 'utf8');
   const { level, hits } = classify(stored);
@@ -182,7 +182,7 @@ function noteBody(key, wantBody) {
   // the evidence that the invariant is being enforced, not assumed.
   if (level === 'secret-value') {
     return {
-      error: 'store 副本仍含明文凭据（旧版本残留），已拒绝提供正文；重新物化即可覆盖', code: 403,
+      error: t('serve.errStaleSecret'), code: 403,
       meta: {
         level, rules: [...new Set(hits.map((h) => h.rule))],
         marks: [...new Map(hits.map((h) => [h.rule + '\u0000' + h.line, { rule: h.rule, line: h.line }])).values()],
@@ -301,7 +301,7 @@ const server = createServer(async (req, res) => {
       let text;
       try { text = await readBody(req); } catch (e) { return json(res, 413, { error: e.message }); }
       let list;
-      try { list = JSON.parse(text || '{}').platforms; } catch { return json(res, 400, { error: 'body 不是合法 JSON' }); }
+      try { list = JSON.parse(text || '{}').platforms; } catch { return json(res, 400, { error: t('serve.errBadJson') }); }
       try {
         const saved = saveCustom(list);
         return json(res, 200, { saved: saved.length, platforms: saved, overview: overview() });

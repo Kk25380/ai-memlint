@@ -401,7 +401,7 @@ function runVerify(flags) {
 function runHarvest(flags) {
   const passthrough = flags['dry-run'] ? ['--dry-run'] : [];
   if (existsSync(join(LEGACY_ROOT, 'state.json')) && !existsSync(STATE_PATH)) {
-    process.stdout.write(makeColor(flags)('90', `检测到旧数据根 ${displayPath(LEGACY_ROOT)}，harvest 会迁移 run 历史。\n`));
+    process.stdout.write(makeColor(flags)('90', t('cli.legacyRoot', { path: displayPath(LEGACY_ROOT) }) + '\n'));
   }
   const child = spawn(process.execPath, [join(BIN, 'harvest.mjs'), ...passthrough], { stdio: 'inherit' });
   return new Promise((res) => child.on('close', (code) => res(code ?? 2)));
