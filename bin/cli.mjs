@@ -408,7 +408,9 @@ function runHarvest(flags) {
 }
 
 function runView(flags) {
-  const child = spawn(process.execPath, [join(BIN, 'serve.mjs')], { stdio: ['inherit', 'pipe', 'inherit'] });
+  // Hand the chosen language to the viewer: serve.mjs reads AI_MEMLINT_LANG at startup.
+  const env = flags.lang ? { ...process.env, AI_MEMLINT_LANG: String(flags.lang) } : process.env;
+  const child = spawn(process.execPath, [join(BIN, 'serve.mjs')], { stdio: ['inherit', 'pipe', 'inherit'], env });
   let opened = false;
   child.stdout.on('data', (d) => {
     process.stdout.write(d);

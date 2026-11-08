@@ -113,18 +113,18 @@ input:focus,select:focus{outline:0;border-color:var(--a)}
 </head>
 <body>
 <header>
-  <h1>ai-memlint <span id="sub">跨平台记忆审计器</span></h1>
+  <h1>ai-memlint <span id="sub"></span></h1>
   <div class="chips" id="chips"></div>
 </header>
 <nav id="nav">
-  <button data-t="find" aria-selected="true">发现</button>
-  <button data-t="plat">平台</button>
-  <button data-t="skills">技能</button>
-  <button data-t="notes">笔记</button>
-  <button data-t="health">体检</button>
+  <button data-t="find" aria-selected="true" data-i18n="web.nav.find"></button>
+  <button data-t="plat" data-i18n="web.nav.plat"></button>
+  <button data-t="skills" data-i18n="web.nav.skills"></button>
+  <button data-t="notes" data-i18n="web.nav.notes"></button>
+  <button data-t="health" data-i18n="web.nav.health"></button>
   <span style="flex:1"></span>
-  <button class="btn" id="rescan">重新扫描</button>
-  <button class="btn write" id="materialize" hidden>物化 store</button>
+  <button class="btn" id="rescan" data-i18n="web.rescan"></button>
+  <button class="btn write" id="materialize" hidden data-i18n="web.materialize"></button>
 </nav>
 <main>
   <div id="scan-status" class="scan-status" role="status" aria-live="polite" aria-atomic="true" hidden>
@@ -139,33 +139,40 @@ input:focus,select:focus{outline:0;border-color:var(--a)}
 </main>
 <script>
 const TOKEN='__TOKEN__';
+// The server injects only the web.* slice of the active locale, so the page never carries
+// strings in a language the CLI is not using. T() falls back to the key, which stays visible
+// in the UI rather than rendering "undefined".
+const L=__I18N__, LOCALE='__LOCALE__';
+const T=(k,v)=>{let s=L[k]??k;if(v)s=s.replace(/\{(\w+)\}/g,(m,x)=>v[x]===undefined?m:String(v[x]));return s};
+const dateStr=(d)=>new Date(d).toLocaleString(LOCALE==='zh'?'zh-CN':'en-US');
 const api=(p,o)=>fetch('/api/'+p+(p.includes('?')?'&':'?')+'t='+TOKEN,o).then(r=>r.json());
 const el=(t,c,x)=>{const e=document.createElement(t);if(c)e.className=c;if(x!=null)e.textContent=x;return e};
-const STAT={detected:['b-detected','已检测'],'detected-empty':['b-empty','已检测·空'],
- 'installed-no-memory':['b-none','已安装·无记忆'],'rules-only':['b-none','仅规则'],'not-installed':['b-none','未安装']};
-const SEV={high:'高',medium:'中',low:'低',info:'提示'};
-const KIND={security:'安全',correctness:'正确性',hygiene:'整洁',descriptor:'描述符'};
-const BLAME=[['user-data','需要处理 — 你的记忆数据'],['descriptor','本工具的描述符问题 — 可提 PR'],['platform','平台自身行为 — 不是你做错了什么']];
-const BLAME_WHY={'user-data':'这些条目会影响检索效果或存在凭据暴露，处理动作在你这边。',
- 'descriptor':'说明 lib/registry.mjs 对某平台的描述过期或不完整。工具不猜，宁可报出来。',
- 'platform':'由厂商的文件格式或目录行为导致，通常无需处理；列出来是为了不让你误判成自己的问题。'};
+const STAT={detected:['b-detected',T('web.stat.detected')],'detected-empty':['b-empty',T('web.stat.detectedEmpty')],
+ 'installed-no-memory':['b-none',T('web.stat.installedNoMemory')],'rules-only':['b-none',T('web.stat.rulesOnly')],'not-installed':['b-none',T('web.stat.notInstalled')]};
+const SEV={high:T('web.sev.high'),medium:T('web.sev.medium'),low:T('web.sev.low'),info:T('web.sev.info')};
+const KIND={security:T('web.kind.security'),correctness:T('web.kind.correctness'),hygiene:T('web.kind.hygiene'),descriptor:T('web.kind.descriptor')};
+const BLAME=[['user-data',T('web.blame.user')],['descriptor',T('web.blame.descriptor')],['platform',T('web.blame.platform')]];
+const BLAME_WHY={'user-data':T('web.why.user'),
+ 'descriptor':T('web.why.descriptor'),
+ 'platform':T('web.why.platform')};
+document.querySelectorAll('[data-i18n]').forEach(x=>{x.textContent=T(x.dataset.i18n)});
 let D=null,V=null,SK=null,pendingOpen=null;
 const BODY_OPT='aim.body.secret-value';
 
 function chips(){
   const s=D.scanned,t=D.summary,c=document.getElementById('chips');c.replaceChildren();
   const add=(l,v,cls)=>{const x=el('div','chip'+(cls?' '+cls:''));x.append(l+' ',el('b',null,v));c.append(x)};
-  add('已安装平台',s.platformsInstalled); add('有记忆',s.platformsWithMemory);
-  add('笔记',s.notes); add('扫描根',s.rootsScanned);
-  add('发现',t.total,t.bySeverity.high?'alert':t.total?'warn':'');
-  add('高危',t.bySeverity.high,t.bySeverity.high?'alert':'');
-  add('明文凭据',D.store.suppressed,D.store.suppressed?'alert':'');
-  add('store',D.store.materialized?'已物化':'未物化');
-  document.getElementById('sub').textContent='扫描于 '+new Date(D.scannedAt).toLocaleString('zh-CN')+' · '+D.elapsedMs+'ms · GET 无副作用';
+  add(T('web.chip.installed'),s.platformsInstalled); add(T('web.chip.withMemory'),s.platformsWithMemory);
+  add(T('web.chip.notes'),s.notes); add(T('web.chip.roots'),s.rootsScanned);
+  add(T('web.chip.findings'),t.total,t.bySeverity.high?'alert':t.total?'warn':'');
+  add(T('web.chip.high'),t.bySeverity.high,t.bySeverity.high?'alert':'');
+  add(T('web.chip.secret'),D.store.suppressed,D.store.suppressed?'alert':'');
+  add('store',D.store.materialized?T('web.materialized'):T('web.notMaterialized'));
+  document.getElementById('sub').textContent=T('web.scannedAt',{time:dateStr(D.scannedAt),ms:D.elapsedMs});
   document.getElementById('materialize').hidden=D.store.materialized;
   const nb=document.querySelector('#nav button[data-t=notes]');
   nb.disabled=!D.store.materialized;
-  nb.title=D.store.materialized?'':'store 尚未物化，先物化再阅读正文';
+  nb.title=D.store.materialized?'':T('web.storeTitle');
 }
 
 function findingRow(f){
@@ -176,20 +183,20 @@ function findingRow(f){
   if(f.count>1)t.append(el('span','tag','×'+f.count));
   t.append(el('span','tag k',KIND[f.kind]||f.kind));
   b.append(t);
-  const loc=[f.platform,f.scope?(f.scope==='user'?'用户级':(f.projectKey?'项目/'+f.projectKey:f.scope)):null].filter(Boolean).join(' · ');
+  const loc=[f.platform,f.scope?(f.scope==='user'?T('web.scope.user'):(f.projectKey?T('web.scope.project',{key:f.projectKey}):f.scope)):null].filter(Boolean).join(' · ');
   if(loc)b.append(el('div','floc',loc));
   if(f.subject)b.append(el('code','fsub',f.subject));
   const marks=f.evidence?.marks||[];
   if(marks.length){
     const box=el('div','marks');
     marks.slice(0,6).forEach(mk=>box.append(el('span','tag w','L'+mk.line+' '+mk.rule)));
-    if(marks.length>6)box.append(el('span','tag','+'+(marks.length-6)+' 行'));
+    if(marks.length>6)box.append(el('span','tag',T('web.moreLines',{n:marks.length-6})));
     b.append(box);
     if(D.store.materialized){
       const slug=(f.subject||'').replace(/\.md$/,'');
       const note=D.notes.find(x=>x.slug===slug&&x.scope===f.scope&&(x.projectKey||null)===(f.projectKey||null));
       if(note){
-        const btn=el('button','btn','查看 L'+marks[0].line);
+        const btn=el('button','btn',T('web.viewLine',{line:marks[0].line}));
         btn.style.margin='8px 0 0';
         btn.onclick=()=>{pendingOpen={slug:note.slug,scope:note.scope,projectKey:note.projectKey,line:marks[0].line};show('notes')};
         b.append(btn);
@@ -205,12 +212,12 @@ function findingRow(f){
 function vFind(){
   const v=document.getElementById('v-find');v.replaceChildren();
   const f=el('div','filters');
-  const q=el('input');q.type='search';q.placeholder='搜索标题 / 文件 / 修复建议…';
-  const fs=el('select');fs.append(new Option('全部严重度',''));
+  const q=el('input');q.type='search';q.placeholder=T('web.search.findings');
+  const fs=el('select');fs.append(new Option(T('web.allSeverity'),''));
   Object.keys(SEV).forEach(s=>fs.append(new Option(SEV[s]+' ('+s+')',s)));
-  const fb=el('select');fb.append(new Option('全部归属',''));
+  const fb=el('select');fb.append(new Option(T('web.allBlame'),''));
   BLAME.forEach(([b,l])=>fb.append(new Option(l.split(' — ')[0],b)));
-  const fp=el('select');fp.append(new Option('全部平台',''));
+  const fp=el('select');fp.append(new Option(T('web.allPlatform'),''));
   [...new Set(D.findings.map(x=>x.platform).filter(Boolean))].forEach(p=>fp.append(new Option(p,p)));
   f.append(q,fs,fb,fp);v.append(f);
 
@@ -223,10 +230,10 @@ function vFind(){
     host.replaceChildren();
     if(!items.length){
       if(!D.findings.length){
-        const ok=el('div','allok','未发现问题');
-        ok.append(el('small',null,'扫描了 '+D.scanned.rootsScanned+' 个根、'+D.scanned.shapeHits+' 个形态命中，'+D.scanned.notes+' 条笔记全部被索引引用，且未检出明文凭据。'));
+        const ok=el('div','allok',T('web.clean.title'));
+        ok.append(el('small',null,T('web.clean.detail',{roots:D.scanned.rootsScanned,shapes:D.scanned.shapeHits,notes:D.scanned.notes})));
         host.append(ok);
-      }else host.append(el('div','empty','无匹配的 finding'));
+      }else host.append(el('div','empty',T('web.noMatchFindings')));
       return;
     }
     for(const [b,label] of BLAME){
@@ -243,15 +250,15 @@ function vFind(){
 }
 
 async function postCustom(list,msg,ok){
-  msg.textContent='保存中…';
+  msg.textContent=T('web.saving');
   try{
     const r=await fetch('/api/custom?t='+TOKEN,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({platforms:list})});
     const j=await r.json();
-    if(!r.ok){msg.textContent='未保存: '+(j.error||('HTTP '+r.status));return;}
+    if(!r.ok){msg.textContent=T('web.saveFailed',{err:j.error||('HTTP '+r.status)});return;}
     msg.textContent='';
     if(ok)ok();
     D=j.overview||D;SK=null;chips();vPlat();
-  }catch(e){msg.textContent='未保存: '+(e?.message||e);}
+  }catch(e){msg.textContent=T('web.saveFailed',{err:e?.message||e});}
 }
 
 async function vPlat(){
@@ -260,29 +267,29 @@ async function vPlat(){
   try{const c=await api('custom');CUST=c.platforms||[];CERR=c.error||null;}catch{}
   const live=D.platforms.filter(p=>p.custom);
   const sect=el('div','sect');
-  sect.append(el('h2',null,'自定义扫描 ('+CUST.length+')'));
-  sect.append(el('div','note','探针默认只认注册表里的平台；小众平台在这里登记根目录即纳入扫描，其笔记同样参与凭据与行号检查。配置保存在数据目录，不进源码树。'));
+  sect.append(el('h2',null,T('web.custom.heading',{n:CUST.length})));
+  sect.append(el('div','note',T('web.custom.note')));
   if(CERR)sect.append(el('div','banner w',CERR));
   const rows=el('div','rows');
   for(const cu of CUST){
     const p=live.find(x=>x.id===cu.id);
     const x=el('div','row');
-    x.append(el('span','tag w','自定义'),el('code',null,cu.label+'  ·  '+cu.roots.join(' , ')+(cu.memoryDir?' / '+cu.memoryDir:'')+(cu.index?'  ['+cu.index+']':'')));
-    x.append(el('span','tag',p&&p.installed?(p.notes+' 条笔记'):'目录不存在'));
-    const del=el('button','btn','删除');
+    x.append(el('span','tag w',T('web.custom.tag')),el('code',null,cu.label+'  ·  '+cu.roots.join(' , ')+(cu.memoryDir?' / '+cu.memoryDir:'')+(cu.index?'  ['+cu.index+']':'')));
+    x.append(el('span','tag',p&&p.installed?T('web.custom.notes',{n:p.notes}):T('web.custom.missing')));
+    const del=el('button','btn',T('web.custom.delete'));
     del.onclick=()=>postCustom(CUST.filter(y=>y.id!==cu.id),msg);
     x.append(del);
     rows.append(x);
   }
-  if(!CUST.length)rows.append(el('div','empty','还没有自定义平台'));
+  if(!CUST.length)rows.append(el('div','empty',T('web.custom.empty')));
   sect.append(rows);
   const f=el('div','cform');
   const iL=el('input'),iR=el('input'),iM=el('input'),iI=el('input');
-  iL.placeholder='名称，如 traey';
-  iR.placeholder='根目录，如 ~/.traey 或 D:\\tools\\traey（多个用逗号）';
-  iM.placeholder='记忆子目录（可空，如 memory；空=根目录本身）';
-  iI.placeholder='索引文件（可空，如 MEMORY.md）';
-  const btn=el('button','btn','添加并扫描');
+  iL.placeholder=T('web.custom.phLabel');
+  iR.placeholder=T('web.custom.phRoot');
+  iM.placeholder=T('web.custom.phMemory');
+  iI.placeholder=T('web.custom.phIndex');
+  const btn=el('button','btn',T('web.custom.add'));
   const msg=el('div','note');
   btn.onclick=()=>postCustom([...CUST,{label:iL.value,roots:iR.value,memoryDir:iM.value,index:iI.value}],msg,()=>{iL.value=iR.value=iM.value=iI.value='';});
   f.append(iL,iR,iM,iI,btn);
@@ -298,21 +305,21 @@ async function vPlat(){
     h.append(el('span','badge '+st[0],st[1]));c.append(h);
     c.append(el('div','fam',p.family+' · '+p.id));
     const s=el('div','stats');
-    for(const[l,n]of[['笔记',p.notes],['存储目录',p.stores],['规则文件',p.rules],['finding',D.summary.byPlatform[p.id]||0]]){
+    for(const[l,n]of[[T('web.plat.notes'),p.notes],[T('web.plat.stores'),p.stores],[T('web.plat.rules'),p.rules],[T('web.plat.findings'),D.summary.byPlatform[p.id]||0]]){
       const d=el('div');d.append(el('b',null,n),document.createTextNode(l));s.append(d);}
     c.append(s);
     const scopes=p.scopes.filter(x=>x.notes);
-    if(scopes.length)c.append(el('div','note',scopes.slice(0,3).map(x=>x.scope+' · '+x.notes+' 条').join('   ')));
-    if(p.unreadable)c.append(el('div','note','⚠ '+p.unreadable+' 个文件无法读取，扫描已跳过而非中断'));
+    if(scopes.length)c.append(el('div','note',scopes.slice(0,3).map(x=>T('web.plat.scopeCount',{scope:x.scope,n:x.notes})).join('   ')));
+    if(p.unreadable)c.append(el('div','note',T('web.plat.unreadable',{n:p.unreadable})));
     c.append(el('div','roots',p.roots.join('  ·  ')));
     if(p.descriptorNote)c.append(el('div','note',p.descriptorNote));
     g.append(c);
   }
   v.append(g);
-  if(!inst.length)v.append(el('div','empty','本机未检测到任何已知平台'));
+  if(!inst.length)v.append(el('div','empty',T('web.plat.none')));
 
   if(not.length){
-    const s=el('div','sect');s.append(el('h2',null,'未安装 / 未检测到 ('+not.length+')'));
+    const s=el('div','sect');s.append(el('h2',null,T('web.plat.notInstalled',{n:not.length})));
     const r=el('div','rows');
     not.forEach(p=>{const x=el('div','row');x.append(el('span','tag',p.family),el('code',null,p.label+'  ·  '+p.id));r.append(x)});
     s.append(r);v.append(s);
@@ -323,11 +330,11 @@ function vNotes(){
   const v=document.getElementById('v-notes');v.replaceChildren();
   if(!D.store.materialized){
     const gate=el('div','gate');
-    gate.append(el('h3',null,'阅读正文需要先物化 store'));
-    gate.append(el('p',null,'审计路径（发现 / 平台 / 体检）全程零写入，只读源目录。要在这里读正文，需要把笔记复制一份到数据根：'));
+    gate.append(el('h3',null,T('web.gate.title')));
+    gate.append(el('p',null,T('web.gate.p1')));
     gate.append(el('p',null,D.store.dataRoot));
-    gate.append(el('p',null,'含明文凭据的笔记不会被复制；含敏感标识符的笔记以遮蔽形式写入。源目录原文始终不改动，工具也没有任何删除调用。'));
-    const b=el('button','btn write','物化 store');
+    gate.append(el('p',null,T('web.gate.p2')));
+    const b=el('button','btn write',T('web.materialize'));
     b.onclick=()=>materialize(b);
     gate.append(b);
     v.append(gate);
@@ -335,30 +342,30 @@ function vNotes(){
   }
   const sp=el('div','split');const left=el('div'),right=el('div','reader');
   const f=el('div','filters');
-  const q=el('input');q.type='search';q.placeholder='搜索 slug / 描述 / 项目…';
-  const fp=el('select');fp.append(new Option('全部平台',''));
+  const q=el('input');q.type='search';q.placeholder=T('web.notes.search');
+  const fp=el('select');fp.append(new Option(T('web.allPlatform'),''));
   [...new Set(D.notes.map(n=>n.platform))].forEach(p=>fp.append(new Option(p,p)));
-  const fs=el('select');fs.append(new Option('全部作用域',''));
+  const fs=el('select');fs.append(new Option(T('web.allScope'),''));
   [...new Set(D.notes.map(n=>n.scope))].forEach(s=>fs.append(new Option(s,s)));
-  const fl=el('select');[['','全部分级'],['clean','clean'],['sensitive','sensitive'],['secret-value','secret-value（已抑制）']].forEach(([a,b])=>fl.append(new Option(b,a)));
+  const fl=el('select');[['',T('web.allLevel')],['clean','clean'],['sensitive','sensitive'],['secret-value',T('web.levelSecret')]].forEach(([a,b])=>fl.append(new Option(b,a)));
   f.append(q,fp,fs,fl);left.append(f);
   const list=el('div','nlist');left.append(list);sp.append(left,right);v.append(sp);
-  right.append(el('div','empty','选择左侧一条笔记'));
+  right.append(el('div','empty',T('web.pickNote')));
 
   const draw=()=>{
     const k=q.value.trim().toLowerCase();
     const items=D.notes.filter(n=>(!fp.value||n.platform===fp.value)&&(!fs.value||n.scope===fs.value)&&(!fl.value||n.level===fl.value)
       &&(!k||(n.slug+' '+(n.description||'')+' '+(n.projectKey||'')).toLowerCase().includes(k)));
     list.replaceChildren();
-    if(!items.length){list.append(el('div','empty','无匹配'));return}
+    if(!items.length){list.append(el('div','empty',T('web.noMatch')));return}
     for(const n of items){
       const d=el('div','nitem');d.setAttribute('role','button');
       d._note=n;
       d.append(el('div','t',n.slug));
-      const m=el('div','m');m.append(el('span',null,n.platform),el('span',null,n.scope==='user'?'用户级':n.projectKey));
+      const m=el('div','m');m.append(el('span',null,n.platform),el('span',null,n.scope==='user'?T('web.scope.user'):n.projectKey));
       m.append(el('span',null,(n.bytes/1024).toFixed(1)+'KB'));
       if(n.level!=='clean')m.append(el('span','tag '+(n.level==='secret-value'?'b':'w'),n.level));
-      if(n.orphaned)m.append(el('span','tag w','孤儿'));
+      if(n.orphaned)m.append(el('span','tag w',T('web.orphan')));
       d.append(m);
       d.onclick=()=>{[...list.children].forEach(c=>c.removeAttribute('aria-current'));d.setAttribute('aria-current','true');openNote(n,right)};
       list.append(d);
@@ -383,22 +390,22 @@ async function openNote(n,pane,focusLine){
   pane.replaceChildren();
   pane.append(el('h3',null,n.slug));
   const m=el('div','meta');
-  m.append(el('span','tag',n.platform),el('span','tag',n.scope==='user'?'用户级':n.projectKey));
+  m.append(el('span','tag',n.platform),el('span','tag',n.scope==='user'?T('web.scope.user'):n.projectKey));
   if(n.type)m.append(el('span','tag',n.type));
-  m.append(el('span',null,n.bytes+' B'));m.append(el('span',null,'来源: '+n.sources.join(', ')));
+  m.append(el('span',null,T('web.bytes',{n:n.bytes})));m.append(el('span',null,T('web.sources',{list:n.sources.join(', ')})));
   pane.append(m);
   if(n.description)pane.append(el('div','note',n.description));
   const r=await api('note?key='+encodeURIComponent(n.key)+(localStorage.getItem(BODY_OPT)==='1'?'&body=1':''));
   if(r.error){
     pane.append(el('div','banner '+(r.code===403?'b':'w'),r.error));
-    if(r.meta?.marks?.length)pane.append(marksBlock(r.meta.marks,'命中位置 — 正文默认不提供，去源文件这些行处理：'));
-    else if(r.meta?.rules?.length)pane.append(el('div','note','命中规则: '+r.meta.rules.join(', ')));
-    (r.meta?.sources||[]).forEach(s=>pane.append(el('div','note','源: '+(typeof s==='string'?s:s.srcPath))));
+    if(r.meta?.marks?.length)pane.append(marksBlock(r.meta.marks,T('web.marksHeading')));
+    else if(r.meta?.rules?.length)pane.append(el('div','note',T('web.rulesHit',{list:r.meta.rules.join(', ')})));
+    (r.meta?.sources||[]).forEach(s=>pane.append(el('div','note',T('web.src',{p:(typeof s==='string'?s:s.srcPath)}))));
     if(r.code===403&&r.meta?.level==='secret-value')bodyOpt(n,pane,focusLine,localStorage.getItem(BODY_OPT)==='1');
     return;
   }
-  if(r.live){pane.append(el('div','banner w','按本浏览器的选择，正文临时读自 '+(r.meta?.liveFrom||'源文件')+' 并遮蔽渲染 · 数据目录无此正文副本 · 源目录原文未改动'));bodyOpt(n,pane,focusLine,true);}
-  else if(r.masked)pane.append(el('div','banner w','store 副本已按分级 '+r.level+' 遮蔽 · 命中规则: '+r.rules.join(', ')+' · 源目录原文未改动'));
+  if(r.live){pane.append(el('div','banner w',T('web.liveBanner',{from:r.meta?.liveFrom||T('web.sourceFile')})));bodyOpt(n,pane,focusLine,true);}
+  else if(r.masked)pane.append(el('div','banner w',T('web.maskedBanner',{level:r.level,rules:r.rules.join(', ')})));
   renderBody(pane,r.text,r.marks,focusLine);
 }
 
@@ -406,7 +413,7 @@ function bodyOpt(n,pane,focusLine,checked){
   const lab=el('label','opt');
   const cb=document.createElement('input');cb.type='checkbox';cb.checked=checked;
   cb.onchange=()=>{localStorage.setItem(BODY_OPT,cb.checked?'1':'0');openNote(n,pane,focusLine);};
-  lab.append(cb,document.createTextNode('查看正文：打开时临时读取源文件、遮蔽渲染（明文不落盘、不出本机）；此选择只记在你自己的浏览器里'));
+  lab.append(cb,document.createTextNode(T('web.optIn')));
   pane.append(lab);
 }
 
@@ -446,50 +453,63 @@ function vHealth(){
   const v=document.getElementById('v-health');v.replaceChildren();
   const sec=(title,items,render,empty)=>{const s=el('div','sect');s.append(el('h2',null,title));
     const r=el('div','rows');
-    if(!items||!items.length)r.append(el('div','empty',empty||'无'));
+    if(!items||!items.length)r.append(el('div','empty',empty||T('web.empty')));
     else items.forEach(i=>r.append(render(i)));
     s.append(r);v.append(s)};
 
   const st=D.store;
-  sec('路径与 store',[{k:'数据根',v:st.dataRoot+(D.roots.overridden?'（AI_MEMORY_HOME 覆盖）':'')},
-    {k:'store',v:st.path+(st.materialized?'':'  ·  未物化')},
-    {k:'代码根',v:D.roots.code+'（永不写入）'},
-    {k:'store 笔记',v:st.notes+' 条 · 遮蔽 '+st.sensitive+' · 抑制 '+st.suppressed+' · 孤儿 '+st.orphaned}],
+  sec(T('web.health.paths'),[
+    {k:T('web.health.dataRoot'),v:st.dataRoot+(D.roots.overridden?T('web.health.overridden'):'')},
+    {k:T('web.health.store'),v:st.path+(st.materialized?'':'  ·  '+T('web.notMaterialized'))},
+    {k:T('web.health.codeRoot'),v:D.roots.code+T('web.health.neverWritten')},
+    {k:T('web.health.storeNotes'),v:T('web.health.notesDetail',{n:st.notes,s:st.sensitive,x:st.suppressed,o:st.orphaned})}],
     x=>{const r=el('div','row');r.append(el('span','tag',x.k),el('code',null,x.v));return r});
 
-  const pane=el('div','sect');pane.append(el('h2',null,'信任面'));
-  const box=el('div','rows');box.append(el('div','empty','正在测量…'));
+  const pane=el('div','sect');pane.append(el('h2',null,T('web.health.trust')));
+  const box=el('div','rows');box.append(el('div','empty',T('web.health.measuring')));
   pane.append(box);v.append(pane);
   ensureVerify().then(()=>{
-    if(!V||!V.assertions){box.replaceChildren(el('div','empty','体检接口未返回结果'));return}
+    if(!V||!V.assertions){box.replaceChildren(el('div','empty',T('web.health.noResult')));return}
     box.replaceChildren();
     const A=V.assertions;
     const line=(mark,bad,label,detail)=>{const r=el('div','row');
       r.append(el('span','tag'+(bad?' b':''),mark),el('span',null,label),el('span','floc',detail));return r};
-    const ok=(b)=>[b?'通过':'未通过',!b];
+    const ok=(b)=>[b?T('web.pass'):T('web.fail'),!b];
     const D=A.zeroDependencies;
     let x=ok(D.pass);
-    box.append(line(x[0],x[1],'零依赖','package.json='+(D.packageJson?'有 · 声明依赖 '+D.declaredDependencies.length+' 个':'无')+(D.parseError?' · 解析失败':'')+' · node_modules='+(D.nodeModules?'有':'无')+' · 外部 import='+D.externalImports.length));
+    box.append(line(x[0],x[1],T('web.health.dep'),T('web.health.depDetail',{
+      pkg:(D.packageJson?T('web.health.depPkg',{n:D.declaredDependencies.length}):T('web.health.depNone'))+(D.parseError?T('web.health.parseFailed'):''),
+      nm:D.nodeModules?T('web.yes'):T('web.no'),
+      ext:D.externalImports.length,
+    })));
     const N=A.zeroNetworkEgress;
     x=ok(N.pass);
-    box.append(line(x[0],x[1],'零网络出口','Node 侧出站 API='+N.nodeEgress.length+' · 外部 origin='+N.externalOrigins.length+' · 监听绑定='+N.listenBindings.length+' 处（全部 loopback）'));
+    box.append(line(x[0],x[1],T('web.health.egress'),T('web.health.egressDetail',{
+      node:N.nodeEgress.length,origins:N.externalOrigins.length,listens:N.listenBindings.length,
+      loopback:T('web.health.loopback'),
+    })));
     x=ok(A.deleteCalls.pass);
-    box.append(line(x[0],x[1],'删除调用',A.deleteCalls.hits.length+' 处 — 工具不会删你的任何文件'));
-    box.append(line(String(A.writeCalls.count),false,'写入调用','全部在 harvest、--out 导出、保存自定义平台描述符里，审计路径不触发'));
+    box.append(line(x[0],x[1],T('web.health.deletes'),T('web.health.deletesDetail',{n:A.deleteCalls.hits.length})));
+    box.append(line(String(A.writeCalls.count),false,T('web.health.writes'),T('web.health.writesDetail')));
     x=ok(A.sourceIntegrity.pass);
-    box.append(line(x[0],x[1],'源文件完整性',A.sourceIntegrity.files+' 个文件，两次扫描间 sha256 '+(A.sourceIntegrity.identical?'全部一致':'有变动')));
+    box.append(line(x[0],x[1],T('web.health.integrity'),T('web.health.integrityDetail',{
+      files:A.sourceIntegrity.files,
+      state:A.sourceIntegrity.identical?T('web.health.identical'):T('web.health.changed'),
+    })));
     x=ok(A.doctorZeroWrite.pass);
-    box.append(line(x[0],x[1],'审计零写入','数据目录'+(A.doctorZeroWrite.dataRootExisted?'内容未变':'未被创建')));
-    for(const[label,hits]of[['监听绑定',N.listenBindings],['写入调用',A.writeCalls.hits],['源文件变动',A.sourceIntegrity.changed]]){
+    box.append(line(x[0],x[1],T('web.health.zeroWrite'),T('web.health.zeroWriteDetail',{
+      state:A.doctorZeroWrite.dataRootExisted?T('web.health.unchanged'):T('web.health.notCreated'),
+    })));
+    for(const[label,hits]of[[T('web.ev.listens'),N.listenBindings],[T('web.ev.writes'),A.writeCalls.hits],[T('web.ev.changed'),A.sourceIntegrity.changed]]){
       for(const h of hits)box.append(el('div','ev',label+'   '+(typeof h==='string'?h:h.file+':'+h.line+'   '+h.text)));
     }
-    box.append(el('div','ev','这些是证据行，供人工复核；工具不代替审计。'));
+    box.append(el('div','ev',T('web.health.evidence')));
   });
 
-  sec('物化历史',st.runs,x=>{const r=el('div','row');
-    r.append(el('span','tag',new Date(x.at).toLocaleString('zh-CN')),
-      el('span',null,'笔记 '+x.notes+' · 新增 '+x.created+' · 更新 '+x.updated+' · 抑制 '+x.suppressed+' · 多源 '+x.contested+(x.dryRun?' · DRY':'')));return r},
-    '尚无 harvest 记录');
+  sec(T('web.health.history'),st.runs,x=>{const r=el('div','row');
+    r.append(el('span','tag',dateStr(x.at)),
+      el('span',null,T('web.health.runRow',{notes:x.notes,created:x.created,updated:x.updated,suppressed:x.suppressed,contested:x.contested})+(x.dryRun?' · DRY':'')));return r},
+    T('web.health.noRuns'));
 }
 
 async function ensureVerify(){
@@ -505,7 +525,7 @@ const skGroup=(s)=>s.platform||(s.rel.split(/[\\/]/)[0]);
 
 async function copyText(text,btn){
   const label=btn.textContent;
-  const done=(ok)=>{btn.textContent=ok?'已复制':'复制失败，请手动选中';setTimeout(()=>{btn.textContent=label},1400)};
+  const done=(ok)=>{btn.textContent=ok?T('web.sk.copied'):T('web.sk.copyFailed');setTimeout(()=>{btn.textContent=label},1400)};
   try{await navigator.clipboard.writeText(text);done(true)}catch{
     const ta=el('textarea');ta.value=text;ta.style.cssText='position:fixed;opacity:0';
     document.body.append(ta);ta.select();
@@ -528,17 +548,17 @@ function skillRow(s){
   return d;
 }
 
-const WORD={missing:['待复制','w'],conflict:['冲突','b'],same:['已存在','']};
+const WORD={missing:[T('web.state.missing'),'w'],conflict:[T('web.state.conflict'),'b'],same:[T('web.state.same'),'']};
 
 function drawReport(out,r){
   const head=el('div','card');
   const h=el('h3');
-  h.append(el('span',null,'目标 '+r.target.label));
-  h.append(el('span','badge '+(r.counts.conflict?'b-none':r.counts.missing?'b-empty':'b-detected'),'待复制 '+r.counts.missing));
+  h.append(el('span',null,T('web.sk.target',{label:r.target.label})));
+  h.append(el('span','badge '+(r.counts.conflict?'b-none':r.counts.missing?'b-empty':'b-detected'),T('web.sk.missingBadge',{n:r.counts.missing})));
   head.append(h);
-  head.append(el('div','fam',r.target.rel+' · 现有 '+r.target.skills+' 个技能 · 来源 '+(r.source?r.source.rel:'其它全部目录')));
+  head.append(el('div','fam',T('web.sk.fam',{rel:r.target.rel,n:r.target.skills,src:r.source?r.source.rel:T('web.sk.otherSources')})));
   const st=el('div','stats');
-  for(const[l,n]of[['待复制',r.counts.missing],['已存在',r.counts.same],['冲突',r.counts.conflict],['合计',r.counts.total]]){
+  for(const[l,n]of[[T('web.state.missing'),r.counts.missing],[T('web.state.same'),r.counts.same],[T('web.state.conflict'),r.counts.conflict],[T('web.sk.total'),r.counts.total]]){
     const d=el('div');d.append(el('b',null,n),document.createTextNode(l));st.append(d)}
   head.append(st);
   for(const p of r.prepare)head.append(el('code','cmd',p));
@@ -554,21 +574,21 @@ function drawReport(out,r){
     const t=el('div','t');
     t.append(el('span',null,i.name));
     t.append(el('span','tag '+WORD[i.state][1],WORD[i.state][0]));
-    if(i.copies>1)t.append(el('span','tag',i.copies+' 份副本'));
+    if(i.copies>1)t.append(el('span','tag',T('web.sk.copies',{n:i.copies})));
     t.append(el('span','tag',i.chosen.hash.slice(0,8)));
     d.append(t);
-    d.append(el('div','p','来自 '+i.chosen.rel+(i.current?'   目标已有 '+i.current.hash.slice(0,8):'')));
+    d.append(el('div','p',T('web.sk.from',{rel:i.chosen.rel})+(i.current?T('web.sk.currentAtTarget',{hash:i.current.hash.slice(0,8)}):'')));
     for(const w of i.warnings)d.append(el('div','d w','⚠ '+w));
     if(i.command){
       d.append(el('code','cmd',i.command));cmds.push(i.command);
-      const b=el('button','btn','复制');b.onclick=()=>copyText(i.command,b);d.append(b);
+      const b=el('button','btn',T('web.sk.copy'));b.onclick=()=>copyText(i.command,b);d.append(b);
     }
     list.append(d);
   }
-  if(!r.items.length)list.append(el('div','empty','该来源没有可迁移的技能'));
+  if(!r.items.length)list.append(el('div','empty',T('web.sk.none')));
   out.append(list);
   if(cmds.length){
-    const b=el('button','btn','复制全部命令 ('+cmds.length+')');
+    const b=el('button','btn',T('web.sk.copyAll',{n:cmds.length}));
     b.onclick=()=>copyText([...r.prepare,...cmds].join('\n'),b);
     out.append(b);
   }
@@ -577,8 +597,8 @@ function drawReport(out,r){
 async function vSkills(){
   const v=document.getElementById('v-skills');
   if(!SK){
-    v.replaceChildren(el('div','empty','正在扫描技能目录…（约 2 秒，只读）'));
-    try{SK=await api('skills')}catch(e){v.replaceChildren(el('div','banner b','技能扫描失败：'+(e?.message||e)));return}
+    v.replaceChildren(el('div','empty',T('web.sk.scanning')));
+    try{SK=await api('skills')}catch(e){v.replaceChildren(el('div','banner b',T('web.sk.scanFailed',{err:e?.message||e})));return}
   }
   drawSkills(v);
 }
@@ -590,19 +610,19 @@ function drawSkills(v){
   const tLabel=(t)=>(t.platform?name(t.platform)+' · ':'')+t.rel+' ('+t.skills+')';
 
   const s1=el('div','sect');
-  s1.append(el('h2',null,'迁移清单'));
-  s1.append(el('div','note','生成复制命令，由你自己运行。本工具不复制、不移动、不删除任何文件 —— 对平台目录始终只读。'));
+  s1.append(el('h2',null,T('web.sk.reportTitle')));
+  s1.append(el('div','note',T('web.sk.reportNote')));
   const bar=el('div','cform');
-  const to=el('select'),from=el('select'),go=el('button','btn','生成清单');
+  const to=el('select'),from=el('select'),go=el('button','btn',T('web.sk.generate'));
   const out=el('div');
-  to.append(new Option('选择目标…',''));
+  to.append(new Option(T('web.sk.pickTarget'),''));
   for(const t of SK.targets.filter(x=>x.installable))to.append(new Option(tLabel(t),t.key));
   const fillFrom=()=>{
     const keep=from.value;
-    from.replaceChildren(new Option('全部来源',''));
+    from.replaceChildren(new Option(T('web.sk.allSources'),''));
     for(const t of SK.targets){
       if(t.key===to.value)continue;
-      from.append(new Option((t.installable?'':'[仅来源] ')+tLabel(t),t.key));
+      from.append(new Option((t.installable?'':T('web.sk.sourceOnly'))+tLabel(t),t.key));
     }
     if([...from.options].some(o=>o.value===keep))from.value=keep;
   };
@@ -612,26 +632,26 @@ function drawSkills(v){
   v.append(s1);
 
   go.onclick=async()=>{
-    if(!to.value){out.replaceChildren(el('div','banner w','请先选择迁移目标'));return}
-    const label=go.textContent;go.disabled=true;go.textContent='扫描中…';
-    out.replaceChildren(el('div','empty','正在重新扫描并比对…'));
+    if(!to.value){out.replaceChildren(el('div','banner w',T('web.sk.needTarget')));return}
+    const label=go.textContent;go.disabled=true;go.textContent=T('web.scan.rescanRunning');
+    out.replaceChildren(el('div','empty',T('web.sk.comparing')));
     try{
       const r=await api('skills?to='+encodeURIComponent(to.value)+(from.value?'&from='+encodeURIComponent(from.value):''));
       out.replaceChildren();
       if(r.error)out.append(el('div','banner b',r.error));
       else drawReport(out,r);
-    }catch(e){out.replaceChildren(el('div','banner b','生成失败：'+(e?.message||e)))}
+    }catch(e){out.replaceChildren(el('div','banner b',T('web.sk.failed',{err:e?.message||e})))}
     finally{go.disabled=false;go.textContent=label}
   };
 
   const dirty=SK.skills.filter(s=>s.level!=='clean');
   const s2=el('div','sect');
-  s2.append(el('h2',null,'技能清单 ('+SK.count+')'));
-  s2.append(el('div','note','按目录下的 SKILL.md 识别（深度 ≤4）；marketplace、缓存、快照与回收站里的副本不计入。同名技能在不同目录可能内容不同，迁移前先比对 hash。'));
-  if(dirty.length)s2.append(el('div','banner b',dirty.length+' 个技能的 SKILL.md 含敏感内容，复制会把凭据一起带走：'+dirty.slice(0,6).map(s=>s.name).join('、')));
+  s2.append(el('h2',null,T('web.sk.listTitle',{n:SK.count})));
+  s2.append(el('div','note',T('web.sk.listNote')));
+  if(dirty.length)s2.append(el('div','banner b',T('web.sk.dirty',{n:dirty.length,names:dirty.slice(0,6).map(s=>s.name).join(LOCALE==='zh'?'、':', ')})));
   const f=el('div','filters');
-  const q=el('input');q.type='search';q.placeholder='搜索技能名 / 描述 / 路径…';
-  const fp=el('select');fp.append(new Option('全部位置',''));
+  const q=el('input');q.type='search';q.placeholder=T('web.sk.search');
+  const fp=el('select');fp.append(new Option(T('web.sk.allPlaces'),''));
   for(const k of [...new Set(SK.skills.map(skGroup))].sort())fp.append(new Option(name(k),k));
   f.append(q,fp);s2.append(f);
   const list=el('div','nlist');s2.append(list);
@@ -640,7 +660,7 @@ function drawSkills(v){
     const items=SK.skills.filter(s=>(!fp.value||skGroup(s)===fp.value)
       &&(!k||(s.name+' '+(s.manifestName||'')+' '+(s.description||'')+' '+s.rel).toLowerCase().includes(k)));
     list.replaceChildren();
-    if(!items.length){list.append(el('div','empty','无匹配'));return}
+    if(!items.length){list.append(el('div','empty',T('web.noMatch')));return}
     let g=null;
     for(const s of items){
       const gk=skGroup(s);
@@ -673,7 +693,7 @@ async function withScan(button,label,running,fn){
   const text=button.textContent;
   button.disabled=true;button.textContent=running;button.setAttribute('aria-busy','true');
   status.hidden=false;status.dataset.state='scanning';
-  title.textContent=label;detail.textContent='正在读取本机记忆目录，现有结果仍可浏览。';
+  title.textContent=label;detail.textContent=T('web.scan.reading');
   try{
     const msg=await fn();
     D=await api('overview');chips();
@@ -681,29 +701,31 @@ async function withScan(button,label,running,fn){
     if(usable(t))views[t]();
     status.dataset.state='success';title.textContent=msg.title;detail.textContent=msg.detail;
   }catch{
-    status.dataset.state='error';title.textContent='未完成';
-    detail.textContent='请检查本地服务后重试；页面仍显示上次结果。';
+    status.dataset.state='error';title.textContent=T('web.scan.incomplete');
+    detail.textContent=T('web.scan.retry');
   }finally{
     button.disabled=false;button.textContent=text;button.removeAttribute('aria-busy');
   }
 }
 
 const rescanBtn=document.getElementById('rescan');
-rescanBtn.onclick=()=>withScan(rescanBtn,'探针扫描中','扫描中…',async()=>{
+rescanBtn.onclick=()=>withScan(rescanBtn,T('web.scan.rescanLabel'),T('web.scan.rescanRunning'),async()=>{
   const d=await api('overview');
   SK=null;
-  return {title:'扫描完成',detail:'发现 '+d.summary.total+' 条问题（高危 '+d.summary.bySeverity.high+'），'+d.scanned.platformsWithMemory+' 个平台有记忆，共 '+d.scanned.notes+' 条笔记。此操作零写入。'};
+  return {title:T('web.scan.done'),detail:T('web.scan.doneDetail',{total:d.summary.total,high:d.summary.bySeverity.high,platforms:d.scanned.platformsWithMemory,notes:d.scanned.notes})};
 });
 
 function materialize(button){
-  return withScan(button,'正在物化 store','写入中…',async()=>{
+  return withScan(button,T('web.scan.materializing'),T('web.scan.writing'),async()=>{
     const r=await fetch('/api/harvest?t='+TOKEN,{method:'POST'});
-    if(!r.ok)throw new Error('harvest 请求失败');
+    if(!r.ok)throw new Error(T('web.err.harvestRequest'));
     const j=await r.json();
-    if(j.harvest?.code!==0)throw new Error('harvest 退出码 '+j.harvest?.code);
+    if(j.harvest?.code!==0)throw new Error(T('web.err.harvestExit',{code:j.harvest?.code}));
     V=null;
-    const line=(j.harvest.out||'').split('\n').map(s=>s.trim()).find(s=>/^新增 /.test(s));
-    return {title:'store 已物化',detail:(line||'完成')+' · 源目录未改动'};
+    // harvest.mjs still prints in Chinese; only echo its summary line when the UI is Chinese,
+    // otherwise the toast would mix languages.
+    const line=LOCALE==='zh'?(j.harvest.out||'').split('\n').map(s=>s.trim()).find(s=>/^新增 /.test(s)):null;
+    return {title:T('web.scan.materialized'),detail:T('web.scan.materializedDetail',{line:line||T('web.scan.doneWord')})};
   });
 }
 document.getElementById('materialize').onclick=e=>materialize(e.currentTarget);
@@ -714,7 +736,7 @@ document.getElementById('materialize').onclick=e=>materialize(e.currentTarget);
     if(r.error)throw new Error(r.error);
     D=r;chips();vFind();
   }catch(e){
-    document.getElementById('v-find').append(el('div','banner b','无法获取扫描结果：'+e.message+' — 服务可能已退出'));
+    document.getElementById('v-find').append(el('div','banner b',T('web.err.overview',{err:e.message})));
   }
 })();
 </script>

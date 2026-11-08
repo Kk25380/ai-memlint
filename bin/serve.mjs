@@ -18,6 +18,7 @@ import { classify, mask } from '../lib/redact.mjs';
 import { runAssertions } from '../lib/verify.mjs';
 import { CUSTOM_PATH, loadCustom, saveCustom } from '../lib/custom.mjs';
 import { BIN, CODE_ROOT, DATA_ROOT, HOME, STATE_PATH, STORE, WEB_ROOT, displayPath, resolve as resolveRoots } from '../lib/paths.mjs';
+import { LOCALES, locale as currentLocale } from '../lib/i18n.mjs';
 
 const PORT = Number(process.env.PORT || 4371);
 const TOKEN = randomBytes(16).toString('hex');
@@ -262,8 +263,15 @@ const server = createServer(async (req, res) => {
   }
 
   if (url.pathname === '/') {
+    // Only the web.* slice ships to the browser: the page has no use for the CLI's strings,
+    // and a smaller payload keeps the page's own dictionary readable in devtools.
+    const webDict = Object.fromEntries(
+      Object.entries(LOCALES[currentLocale()]).filter(([k]) => k.startsWith('web.')),
+    );
     const html = readFileSync(resolve(WEB_ROOT, 'index.html'), 'utf8')
-      .replaceAll('__TOKEN__', TOKEN).replaceAll('__PORT__', String(PORT));
+      .replaceAll('__TOKEN__', TOKEN).replaceAll('__PORT__', String(PORT))
+      .replaceAll('__I18N__', JSON.stringify(webDict).replace(/</g, '\\u003c'))
+      .replaceAll('__LOCALE__', currentLocale());
     res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' });
     return res.end(html);
   }
