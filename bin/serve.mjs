@@ -18,7 +18,7 @@ import { classify, mask } from '../lib/redact.mjs';
 import { runAssertions } from '../lib/verify.mjs';
 import { CUSTOM_PATH, loadCustom, saveCustom } from '../lib/custom.mjs';
 import { BIN, CODE_ROOT, DATA_ROOT, HOME, STATE_PATH, STORE, WEB_ROOT, displayPath, resolve as resolveRoots } from '../lib/paths.mjs';
-import { LOCALES, locale as currentLocale, t } from '../lib/i18n.mjs';
+import { LOCALES, locale as currentLocale, localeNames, setLocale, t } from '../lib/i18n.mjs';
 
 const PORT = Number(process.env.PORT || 4371);
 const TOKEN = randomBytes(16).toString('hex');
@@ -261,6 +261,12 @@ const server = createServer(async (req, res) => {
   if (!ALLOWED_HOSTS.has(req.headers.host)) {
     return json(res, 403, { error: 'host not allowed' });
   }
+
+  // The viewer's language switcher reloads with ?lang=, and every API call repeats it, so
+  // the page and its payload always agree. One process, one locale: two tabs in different
+  // languages could interleave — an accepted trade for a single-user loopback tool.
+  const wantLang = url.searchParams.get('lang');
+  if (wantLang && localeNames.includes(wantLang.toLowerCase())) setLocale(wantLang.toLowerCase());
 
   if (url.pathname === '/') {
     // Only the web.* slice ships to the browser: the page has no use for the CLI's strings,

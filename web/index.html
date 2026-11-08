@@ -125,6 +125,10 @@ input:focus,select:focus{outline:0;border-color:var(--a)}
   <button data-t="notes" data-i18n="web.nav.notes">笔记</button>
   <button data-t="health" data-i18n="web.nav.health">体检</button>
   <span style="flex:1"></span>
+  <select class="btn" id="lang" aria-label="Language">
+    <option value="zh">中文</option>
+    <option value="en">English</option>
+  </select>
   <button class="btn" id="rescan" data-i18n="web.rescan">重新扫描</button>
   <button class="btn write" id="materialize" hidden data-i18n="web.materialize">物化 store</button>
 </nav>
@@ -156,7 +160,9 @@ const LOCALE=/^(zh|en)$/.test(LOCALE_RAW)?LOCALE_RAW:'en';
 const MISSING=Object.keys(L).length===0;
 const T=(k,v)=>{let s=L[k]??k;if(v)s=s.replace(/\{(\w+)\}/g,(m,x)=>v[x]===undefined?m:String(v[x]));return s};
 const dateStr=(d)=>new Date(d).toLocaleString(LOCALE==='zh'?'zh-CN':'en-US');
-const api=(p,o)=>fetch('/api/'+p+(p.includes('?')?'&':'?')+'t='+TOKEN,o).then(r=>r.json());
+// Every request carries the page's locale: prose in the payload (finding titles, fixes,
+// skill warnings) is rendered server-side, so a chrome-only switch would mix languages.
+const api=(p,o)=>fetch('/api/'+p+(p.includes('?')?'&':'?')+'t='+TOKEN+'&lang='+LOCALE,o).then(r=>r.json());
 const el=(t,c,x)=>{const e=document.createElement(t);if(c)e.className=c;if(x!=null)e.textContent=x;return e};
 const STAT={detected:['b-detected',T('web.stat.detected')],'detected-empty':['b-empty',T('web.stat.detectedEmpty')],
  'installed-no-memory':['b-none',T('web.stat.installedNoMemory')],'rules-only':['b-none',T('web.stat.rulesOnly')],'not-installed':['b-none',T('web.stat.notInstalled')]};
@@ -743,11 +749,23 @@ function materialize(button){
 }
 document.getElementById('materialize').onclick=e=>materialize(e.currentTarget);
 
+// Switching language reloads with ?lang=: the server then renders the payload in that
+// language, and the active tab is restored from the hash so the switch does not lose it.
+const langSel=document.getElementById('lang');
+langSel.value=LOCALE;
+if(MISSING)langSel.hidden=true; // no server, so switching cannot change anything
+langSel.onchange=()=>{
+  const tab=(document.querySelector('#nav button[aria-selected=true]')||{}).dataset?.t||'find';
+  location.href='?t='+TOKEN+'&lang='+langSel.value+'#'+tab;
+};
+
 (async()=>{
   try{
     const r=await api('overview');
     if(r.error)throw new Error(r.error);
     D=r;chips();vFind();
+    const tab=location.hash.slice(1);
+    if(tab&&views[tab]&&usable(tab))show(tab);
   }catch(e){
     const msg=MISSING
       ?'此页面需要通过本地服务打开：运行 ai-memlint view · This page must be opened through the local server: run ai-memlint view'
