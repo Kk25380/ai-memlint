@@ -62,7 +62,7 @@ npm install -g .                 # then: ai-memlint doctor
 
 Data root: `%LOCALAPPDATA%\ai-memory` on Windows, `~/Library/Application Support/ai-memory` on
 macOS, `$XDG_DATA_HOME/ai-memory` (default `~/.local/share/ai-memory`) on Linux; override with
-`AI_MEMORY_HOME`. CLI and viewer prose is currently zh-CN.
+`AI_MEMORY_HOME`.
 
 Platforms the built-in registry does not know can be added from the viewer's 平台 tab (or by
 editing `platforms.json` in the data root). Custom entries are pure data — paths and file
@@ -84,7 +84,8 @@ fails when a locale's key set or placeholder names drift from the base — so a 
 translation cannot ship silently.
 
 The JSON report is locale-independent: it carries finding ids and data, never prose. The web
-viewer's chrome is still Chinese; its report content follows the same locale as the CLI.
+viewer switches language by reloading with `?lang=`, so the server renders both the chrome and
+the report payload in the selected language; without a server the switcher is hidden.
 
 ## Security model
 
